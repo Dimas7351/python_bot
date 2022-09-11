@@ -36,14 +36,15 @@ def add(message):
         bot.send_message(message.chat.id, 'Введите стоимость')
     elif users_dict.get(message.chat.id, {}).get('price', False) and message.chat.id in users_dict:
         cursor.execute(f"select * from users")
+        price = int(message.text)
         scores = cursor.fetchall()
         minim = 1000000
         for i in scores:
-            if i[2]<minim:
-                minim = i[2]
+            if i[2]+price<minim:
+                minim = i[2]+price
         users_id = []
         for y in scores:
-            if y[2]==minim:
+            if y[2]+price==minim:
                 users_id.append(y[0])
         rand_id = random.choice(users_id)
         cursor.execute(f"update tasks SET price = {message.text} where id = ({users_dict[message.chat.id]['price']})")
@@ -62,7 +63,7 @@ def complete(message):
             cursor.execute(f"select price from tasks where id = ({users_dict[message.chat.id]['task_id']})")
             one_price = cursor.fetchone()
             cursor.execute(f"update tasks SET is_done = 1 where id = ({users_dict[message.chat.id]['task_id']})")
-            cursor.execute(f"update users SET score +={one_price} where id = ({users_dict[message.chat.id]['task_id']})")
+            cursor.execute(f"update users SET score = score + {one_price} where id = ({users_dict[message.chat.id]['task_id']})")
             sqlite_connection.commit()
             bot.send_message(message.chat.id, f"Задание {users_dict[message.chat.id]['task_id']} выполнено")
         else:
