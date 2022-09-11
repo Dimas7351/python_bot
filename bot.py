@@ -36,21 +36,22 @@ def add(message):
         bot.send_message(message.chat.id, 'Введите стоимость')
     elif users_dict.get(message.chat.id, {}).get('price', False) and message.chat.id in users_dict:
         cursor.execute(f"select * from users")
-        price = int(message.text)
+        users_dict[message.chat.id]['score'] += int(message.text)
         scores = cursor.fetchall()
         minim = 1000000
         for i in scores:
-            if i[2]+price<minim:
-                minim = i[2]+price
+            if i[2]+users_dict[i[0]]['score']<minim:
+                minim = i[2]+users_dict[i[0]]['score']
         users_id = []
         for y in scores:
-            if y[2]+price==minim:
+            if y[2]+users_dict[y[0]]['score']==minim:
                 users_id.append(y[0])
         rand_id = random.choice(users_id)
         cursor.execute(f"update tasks SET price = {message.text} where id = ({users_dict[message.chat.id]['price']})")
         cursor.execute(f"update tasks SET executor_id = {rand_id} where id = ({users_dict[message.chat.id]['price']})")
         del users_dict[message.chat.id]['create_task']
         del users_dict[message.chat.id]['price']
+        bot.send_message(message.chat.id, "Задание было успешно добавлено")
     sqlite_connection.commit()
 
 
@@ -62,8 +63,12 @@ def complete(message):
         if message.text.lower() == "да":
             cursor.execute(f"select price from tasks where id = ({users_dict[message.chat.id]['task_id']})")
             one_price = cursor.fetchone()
+            cursor.execute(f"select score from users where id = ({message.chat.id})")
+            old_score = cursor.fetchone()
+            new_score = str(int(old_score[0])+int(one_price[0]))
+            print(one_price[0],old_score[0])
             cursor.execute(f"update tasks SET is_done = 1 where id = ({users_dict[message.chat.id]['task_id']})")
-            cursor.execute(f"update users SET score = score + {one_price} where id = ({users_dict[message.chat.id]['task_id']})")
+            cursor.execute(f"update users SET score = ('{new_score}') where id = ({message.chat.id})")
             sqlite_connection.commit()
             bot.send_message(message.chat.id, f"Задание {users_dict[message.chat.id]['task_id']} выполнено")
         else:
@@ -140,8 +145,9 @@ if __name__ == "__main__":
     cursor.execute(tasks_query)
     cursor.execute(users_query)
     sqlite_connection.commit()
-    cursor.execute("select id from users")
+    cursor.execute("select id, score from users")
     all_results = cursor.fetchall()
-    users_dict = {x[0]: {} for x in all_results}
+    print(all_results)
+    users_dict = {x[0]: {'score':x[1]} for x in all_results}
     print(users_dict)
     bot.polling(none_stop=True)
